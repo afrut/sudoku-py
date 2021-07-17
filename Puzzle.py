@@ -132,7 +132,7 @@ class Puzzle:
         else:
             return (-1, -1)
 
-    # TODO: implement
+    # examine possible values ina  square and try to reduce by process of elimination
     def _squareElim(self, x, y):
         # initialize
         dctcnt = dict()
@@ -166,7 +166,7 @@ class Puzzle:
 
     # used for counting the number of times a possible value appears in a subset
     # of elements
-    def _countPossibleValues(st: set, counts: dict):
+    def _countPossibleValues(self, st: set, counts: dict):
         if st is not None:
             for val in st:
                 if val in counts.keys():
@@ -263,24 +263,24 @@ class Puzzle:
 if __name__ == '__main__':
     sp.call('cls', shell = True)
 
-    puzzle = Puzzle('.\\puzzles\\0004.txt')
-    print(puzzle.toString())
-    print('------------------------------')
-    puzzle.solve()
-    assert puzzle.verify()
-    print(puzzle.toString())
-    print('----------------------------------------------------------------------\n\n\n')
+    #puzzle = Puzzle('.\\puzzles\\0004.txt')
+    #print(puzzle.toString())
+    #print('------------------------------')
+    #puzzle.solve()
+    #assert puzzle.verify()
+    #print(puzzle.toString())
+    #print('----------------------------------------------------------------------\n\n\n')
 
 
-#    dirname = '.\\puzzles'
-#    filenames = os.listdir(dirname)
-#
-#    for filename in filenames:
-#        filename = dirname + '\\' + filename
-#        puzzle = Puzzle(filename)
-#        print(puzzle.toString())
-#        print('------------------------------')
-#        puzzle.solve()
-#        assert puzzle.verify()
-#        print(puzzle.toString())
-#        print('----------------------------------------------------------------------\n\n\n')
+    dirname = '.\\puzzles'
+    filenames = os.listdir(dirname)
+
+    for filename in filenames:
+        filename = dirname + '\\' + filename
+        puzzle = Puzzle(filename)
+        print(puzzle.toString())
+        print('------------------------------')
+        puzzle.solve()
+        assert puzzle.verify()
+        print(puzzle.toString())
+        print('----------------------------------------------------------------------\n\n\n')
