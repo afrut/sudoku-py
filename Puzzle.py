@@ -30,7 +30,7 @@ class Puzzle:
                     self.possible[x, y] = defaultset.copy()
 
     # examine all sets of possible values and discard impossible values
-    def reduce(self) -> int:
+    def _reduce(self) -> int:
         ret = 0
         for x in range(self.a.shape[0]):
             for y in range(self.a.shape[1]):
@@ -51,7 +51,7 @@ class Puzzle:
                             st.discard(val)
 
                         # remove possible values in the sub-square array
-                        square = self.sub(x, y)
+                        square = self._sub(x, y)
                         idx = square > 0
                         ls = list(square[idx])
                         for val in ls:
@@ -64,58 +64,24 @@ class Puzzle:
         return ret
 
     # get the 3x3 square that element (x,y) belongs to
-    def sub(self, x, y) -> np.ndarray:
-        starty = int(y / 3) * 3
-        startx = int(x / 3) * 3
+    def _sub(self, x, y) -> np.ndarray:
+        startx, starty = self._getSquareStart(x, y)
         return self.a[startx:startx + 3, starty:starty + 3]
 
-    # continuously reduce the puzzle until it is solved
-    def solve(self):
-        while not(np.all(self.solved)):
-            numreduced = self.reduce()
-
-            if numreduced == 0:
-                # process of elimination by rows
-                for x in range(9):
-                    y, value = self.eliminaterow(x)
-                    if y >= 0:
-                        numreduced = numreduced + 1
-                        self.a[x,y] = value
-                        self.solved[x,y] = True
-                        self.possible[x,y].clear()
-                        break
-    
-            if numreduced == 0:
-                # process of elimination by columns
-                for y in range(9):
-                    x, value = self.eliminatecolumn(y)
-                    if x >= 0:
-                        numreduced = numreduced + 1
-                        self.a[x,y] = value
-                        self.solved[x,y] = True
-                        self.possible[x,y].clear()
-                        break
-
-            # TODO: process of elimination by square
+    # get the index topleft-most of element that is the start of the square that
+    # element (x, y) belongs to
+    def _getSquareStart(self, x, y) -> tuple:
+        return (int(x / 3) * 3, int(y / 3) * 3)
 
     # examine possible values in a row and try to reduce by process of elimination
-    def eliminaterow(self, x):
+    def _rowElim(self, x):
         # initialize
         dctcnt = dict()
         found = False
 
-        # get list of sets for row x
-        for y in range(9):
-            st = self.possible[x,y]
-
-            if st is not None:
-                for val in st:
-                    if val in dctcnt.keys():
-                        # increment the number of cells that have val as a
-                        # possible value
-                        dctcnt[val] = dctcnt[val] + 1
-                    else:
-                        dctcnt[val] = 1
+        for y in range(9):                              # for every element in this column
+            st = self.possible[x,y]                     # get the set of possible values
+            self._countPossibleValues(st, dctcnt)       # count number of times possible values appear
 
         # search for the value where only 1 cell in this row has it as a
         # possible value ie, dctcnt[val] == 1
@@ -125,7 +91,7 @@ class Puzzle:
                 possiblevalue = key
                 break
 
-        # find the column with value as one of its possible values
+        # find the column with possiblevalue as one of its possible values
         if found:
             for y in range(9):
                 st = self.possible[x,y]
@@ -138,23 +104,14 @@ class Puzzle:
 
     # examine possible values in a column and try to reduce by process of
     # elimination
-    def eliminatecolumn(self, y):
+    def _colElim(self, y):
         # initialize
         dctcnt = dict()
         found = False
 
-        # get list of sets for row x
-        for x in range(9):
-            st = self.possible[x,y]
-
-            if st is not None:
-                for val in st:
-                    if val in dctcnt.keys():
-                        # increment the number of cells that have val as a
-                        # possible value
-                        dctcnt[val] = dctcnt[val] + 1
-                    else:
-                        dctcnt[val] = 1
+        for x in range(9):                              # for every element in this column
+            st = self.possible[x,y]                     # get the set of possible values
+            self._countPossibleValues(st, dctcnt)       # count number of times possible values appear
 
         # search for the value where only 1 cell in this row has it as a
         # possible value ie, dctcnt[val] == 1
@@ -164,7 +121,7 @@ class Puzzle:
                 possiblevalue = key
                 break
 
-        # find the column with value as one of its possible values
+        # find the row with possiblevalue as one of its possible values
         if found:
             for x in range(9):
                 st = self.possible[x,y]
@@ -176,7 +133,87 @@ class Puzzle:
             return (-1, -1)
 
     # TODO: implement
-    #def eliminatesquare(self, x, y):
+    def _squareElim(self, x, y):
+        # initialize
+        dctcnt = dict()
+        found = False
+
+        startx, starty = self._getSquareStart(x, y)
+        for x in range(startx, startx + 3):
+            for y in range(starty, starty + 3):             # for every element in the square that this element belongs to
+                st = self.possible[x,y]                     # get the set of possible values
+                self._countPossibleValues(st, dctcnt)       # count number of times possible values appear
+
+        # search for the value where only 1 cell in this row has it as a
+        # possible value ie, dctcnt[val] == 1
+        for key, value in dctcnt.items():
+            if value == 1:
+                found = True
+                possiblevalue = key
+                break
+
+        # find the cell with possiblevalue as one of its possible values
+        if found:
+            for x in range(startx, startx + 3):
+                for y in range(starty, starty + 3):
+                    st = self.possible[x,y]
+                    if st is not None:
+                        if possiblevalue in st:
+                            break
+            return (x, y, possiblevalue)
+        else:
+            return (-1, -1, -1)
+
+    # used for counting the number of times a possible value appears in a subset
+    # of elements
+    def _countPossibleValues(st: set, counts: dict):
+        if st is not None:
+            for val in st:
+                if val in counts.keys():
+                    # increment the number of cells that have val as a
+                    # possible value
+                    counts[val] = counts[val] + 1
+                else:
+                    counts[val] = 1
+
+    # continuously reduce the puzzle until it is solved
+    def solve(self):
+        while not(np.all(self.solved)):
+            numreduced = self._reduce()
+
+            if numreduced == 0:
+                # process of elimination by rows
+                for x in range(9):
+                    y, value = self._rowElim(x)
+                    if y >= 0:
+                        numreduced = numreduced + 1
+                        self.a[x,y] = value
+                        self.solved[x,y] = True
+                        self.possible[x,y].clear()
+                        break
+    
+            if numreduced == 0:
+                # process of elimination by columns
+                for y in range(9):
+                    x, value = self._colElim(y)
+                    if x >= 0:
+                        numreduced = numreduced + 1
+                        self.a[x,y] = value
+                        self.solved[x,y] = True
+                        self.possible[x,y].clear()
+                        break
+
+            if numreduced == 0:
+                # process of eliminaton by square
+                for startx in [0, 3, 6]:
+                    for starty in [0, 3, 6]:
+                        x, y, value = self._squareElim(startx, starty)
+                        if x >= 0:
+                            numreduced = numreduced + 1
+                            self.a[x,y] = value
+                            self.solved[x,y] = True
+                            self.possible[x,y].clear()
+                            break
 
     # check if puzzle is actually solved
     def verify(self):
@@ -193,7 +230,7 @@ class Puzzle:
         # check each square
         for x in [0, 3, 6]:
             for y in [0, 3, 6]:
-                square = self.sub(x,y)
+                square = self._sub(x,y)
                 if len(set(list(np.ravel(square)))) != 9:
                     return False
         return True
@@ -226,24 +263,24 @@ class Puzzle:
 if __name__ == '__main__':
     sp.call('cls', shell = True)
 
-#    puzzle = Puzzle('.\\puzzles\\0004.txt')
-#    print(puzzle.toString())
-#    print('------------------------------')
-#    puzzle.solve()
-#    assert puzzle.verify()
-#    print(puzzle.toString())
-#    print('----------------------------------------------------------------------\n\n\n')
+    puzzle = Puzzle('.\\puzzles\\0004.txt')
+    print(puzzle.toString())
+    print('------------------------------')
+    puzzle.solve()
+    assert puzzle.verify()
+    print(puzzle.toString())
+    print('----------------------------------------------------------------------\n\n\n')
 
 
-    dirname = '.\\puzzles'
-    filenames = os.listdir(dirname)
-
-    for filename in filenames:
-        filename = dirname + '\\' + filename
-        puzzle = Puzzle(filename)
-        print(puzzle.toString())
-        print('------------------------------')
-        puzzle.solve()
-        assert puzzle.verify()
-        print(puzzle.toString())
-        print('----------------------------------------------------------------------\n\n\n')
+#    dirname = '.\\puzzles'
+#    filenames = os.listdir(dirname)
+#
+#    for filename in filenames:
+#        filename = dirname + '\\' + filename
+#        puzzle = Puzzle(filename)
+#        print(puzzle.toString())
+#        print('------------------------------')
+#        puzzle.solve()
+#        assert puzzle.verify()
+#        print(puzzle.toString())
+#        print('----------------------------------------------------------------------\n\n\n')
